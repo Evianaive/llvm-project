@@ -20,4 +20,28 @@ auto r4 = bar();
 %undo
 auto r5 = bar();
 
+//--- Test file re-inclusion after undo with in-repl modification ---
+// RUN: rm -rf %T && mkdir -p %T
+// RUN: cp %S/Inputs/dynamic-header.h %T/dynamic-header-test.h
+// RUN: cat %s | clang-repl -I%T | FileCheck %s
+#include <cstdio>
+
+#include "dynamic-header-test.h"
+auto val1 = getDynamicValue();
+%undo
+%undo
+// CHECK: val1 = 100
+{
+    FILE *f;
+    fopen_s(&f, "%T/dynamic-header-test.h", "w");
+    fprintf(f, "#ifndef DYNAMIC_HEADER_H\n");
+    fprintf(f, "#define DYNAMIC_HEADER_H\n");
+    fprintf(f, "inline int getDynamicValue() { return 200; }\n");
+    fprintf(f, "#endif\n");
+    fclose(f);
+}
+#include "dynamic-header-test.h"
+auto val2 = getDynamicValue();
+// CHECK-NEXT: val2 = 200
+
 %quit
